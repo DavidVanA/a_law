@@ -12,11 +12,11 @@
 
 #define ALAW_A (87.6)
 
-static uint8_t a_law_convert(uint32_t val, int num_bits);
-static uint8_t get_sign(uint32_t num, uint32_t pos);
+static uint8_t a_law_convert(uint32_t val);
+static uint8_t get_sign(uint32_t num);
 static int get_leading_zeros(uint32_t val);
 static uint8_t get_leading_zero_chord(int num_zeros);
-static uint8_t get_compressed_data(uint32_t val, int bits_per_sample, int num_zeros);
+static uint8_t get_compressed_data(uint32_t val, int num_zeros);
 
 int a_law(WAV_Header *header, FILE *input, FILE *output) {
 	// Get data container size
@@ -46,13 +46,24 @@ int a_law(WAV_Header *header, FILE *input, FILE *output) {
 	uint32_t sample;
 	uint32_t size = 0;
 	uint8_t converted;
+	// Want 12 bits per sample, so make data into that format
+	int shift_amount = header->bits_per_sample - 12;
+	int samples_per_read = 4/header->container_size;
 	printf("Reading data of size: %d\n", data_size);
+	printf("Samples per 32-bit int: %d\n", samples_per_read);
 
-	for(int i = 0; i < chunks; i++) {
-		fread(&sample, data_size, 1, input);
-		converted = a_law_convert(sample, header->bits_per_sample);
-		fwrite(&converted, 1, 1, output);
-		size++;
+	for(int i = 0; i < chunks/4; i++) {	
+		// Read 4 bytes 1 time
+		fread(&sample, 4, 1, input);
+		// For every sample stored in this 32-bit int
+		for(int j = 0; j < samples_per_read; j++) {
+			// Shift over by number of bits needed to get next sample
+			converted = a_law_convert(sample >> shift_amount);
+//			printf("Converted value: %X\n", converted);
+			fwrite(&converted, 1, 1, output);
+			sample = sample >> (8 * header->container_size);
+			size++;
+		}
 	}
 
 	WAV_Header output_header = {
@@ -65,8 +76,7 @@ int a_law(WAV_Header *header, FILE *input, FILE *output) {
 		header->num_channels,		// Number of channels
 		header->sample_rate,		// Sample rate
 		header->sample_rate * header->num_channels * 8, // Byte rate
-		8 * header->num_channels,	// Byte rate
-		1,				// Container size
+		8 * header->num_channels,	// Container size
 		8,				// Bits per sample
 		{ 'd', 'a', 't', 'a' },		// "data"
 	};
@@ -80,14 +90,19 @@ int a_law(WAV_Header *header, FILE *input, FILE *output) {
 	return 0;
 }
 
-static uint8_t a_law_convert(uint32_t val, int num_bits) {
-	// Get the number of leading zeros
-	uint32_t val_signless = val ^ (0x01 << num_bits);
-	int num_zeros = get_leading_zeros(val_signless) - (32 - num_bits);
+static uint8_t a_law_convert(uint32_t val) {
+//	printf("\nValue: %X\n", val);
+	// Get value without sign bit
+	uint32_t val_signless = val & 0x7FF;
+//	printf("Value without sign: %X\n", val_signless);
+	// Number of zeros is <leading zeros> - <space before data> - <space for sign>
+	int num_zeros = get_leading_zeros(val_signless) - 21;
+//	printf("Number of zeros: %d\n", num_zeros);
 
 	// Get the converted value
 	uint8_t converted = get_leading_zero_chord(num_zeros) | 
-			    get_compressed_data(val, num_bits, num_zeros);
+			    get_compressed_data(val_signless, num_zeros) |
+			    get_sign(val);
 
 	// Return the converted value
 	return converted;
@@ -102,30 +117,17 @@ static int get_leading_zeros(uint32_t val) {
     		: [input] "r" (val)
   	);
 
-	/*
-	uint32_t mask = 1;
-	mask <<= bits_per_sample-1;
-
-	// If this bit is set or we reached the end of the bits to check
-	while(!(val & mask) && mask != 0x0008)
-	{
-		// Shift mask down for next check
-		mask >>= 1;
-		num_zeros++;
-	}
-	*/
-
 	return num_zeros;
 }
 
-static uint8_t get_compressed_data(uint32_t val, int bits_per_sample, int num_zeros)
+static uint8_t get_compressed_data(uint32_t val, int num_zeros)
 {
 	// Find position of relevant data
-	int data_position = (bits_per_sample-2) - num_zeros;
+	int data_position = 7 - num_zeros;
 	// Get relevant data
 	uint32_t masked_data = val & (0x0F << data_position);
 	// Shift data down to start and put into 8-bit int
-	uint8_t step_data = (uint8_t)(masked_data >> 1 + (get_leading_zero_chord(num_zeros)));
+	uint8_t step_data = (uint8_t)(masked_data >> data_position);
 
 	return step_data;
 }
@@ -135,8 +137,8 @@ static uint8_t get_leading_zero_chord(int num_zeros) {
 	return (0x07 - num_zeros) << 4;
 }
 
-static uint8_t get_sign(uint32_t num, uint32_t pos) {
-	uint32_t mask = 0x01 << pos;
+static uint8_t get_sign(uint32_t num) {
+	uint32_t mask = 0x800;
 	uint32_t result;
 
 	asm ("ANDS %[result], %[num], %[mask]" 
