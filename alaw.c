@@ -48,22 +48,20 @@ int a_law(WAV_Header *header, FILE *input, FILE *output) {
 	uint8_t converted;
 	// Want 12 bits per sample, so make data into that format
 	int shift_amount = header->bits_per_sample - 12;
-	int samples_per_read = 4/header->container_size;
 	printf("Reading data of size: %d\n", data_size);
-	printf("Samples per 32-bit int: %d\n", samples_per_read);
+	int read_size = header->container_size/header->num_channels;
+	printf("Number of bytes r
 
-	for(int i = 0; i < chunks/4; i++) {	
-		// Read 4 bytes 1 time
-		fread(&sample, 4, 1, input);
+	for(int i = 0; i < 100; i++) {
+//	for(int i = 0; i < chunks/4; i++) {	
+		// Read in one sample
+		fread(&sample, read_size, 1, input);
 		// For every sample stored in this 32-bit int
-		for(int j = 0; j < samples_per_read; j++) {
-			// Shift over by number of bits needed to get next sample
-			converted = a_law_convert(sample >> shift_amount);
-//			printf("Converted value: %X\n", converted);
-			fwrite(&converted, 1, 1, output);
-			sample = sample >> (8 * header->container_size);
-			size++;
-		}
+		// Shift over by number of bits needed to get next sample
+		converted = a_law_convert(sample >> shift_amount);
+//		printf("Converted value: %X\n", converted);
+		fwrite(&converted, 1, 1, output);
+		size++;
 	}
 
 	WAV_Header output_header = {
@@ -91,13 +89,13 @@ int a_law(WAV_Header *header, FILE *input, FILE *output) {
 }
 
 static uint8_t a_law_convert(uint32_t val) {
-//	printf("\nValue: %X\n", val);
+	printf("\nValue: %X\n", val);
 	// Get value without sign bit
 	uint32_t val_signless = val & 0x7FF;
-//	printf("Value without sign: %X\n", val_signless);
+	printf("Value without sign: %X\n", val_signless);
 	// Number of zeros is <leading zeros> - <space before data> - <space for sign>
 	int num_zeros = get_leading_zeros(val_signless) - 21;
-//	printf("Number of zeros: %d\n", num_zeros);
+	printf("Number of zeros: %d\n", num_zeros);
 
 	// Get the converted value
 	uint8_t converted = get_leading_zero_chord(num_zeros) | 
