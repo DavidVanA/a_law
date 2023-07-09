@@ -49,11 +49,8 @@ int a_law(WAV_Header *header, FILE *input, FILE *output) {
 	// Want 12 bits per sample, so make data into that format
 	int shift_amount = header->bits_per_sample - 12;
 	printf("Reading data of size: %d\n", data_size);
-
-	// Number of bites to read is total size minus size of
-	// header files (i.e. size - 44bytes)
-	int read_size = header->size - 44;
-	printf("Number of bytes read: %d\n", read_size);
+	int read_size = header->container_size/header->num_channels;
+	printf("Number of bits per chunk: %d\n", read_size);
 
 	for(int i = 0; i < 100; i++) {
 //	for(int i = 0; i < chunks/4; i++) {	
