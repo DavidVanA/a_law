@@ -2,7 +2,7 @@
 /*
  * A-Law compression algorithm
  *
- * Written by: David Van Acken
+ * Written by: David Van Acken and Ryland Nezil
  * On: June 11, 2023
  */
 
@@ -49,8 +49,9 @@ int a_law(WAV_Header *header, FILE *input, FILE *output) {
 	// Want 12 bits per sample, so make data into that format
 	int shift_amount = header->bits_per_sample - 12;
 	printf("Reading data of size: %d\n", data_size);
+
+	// Unsure about this line
 	int read_size = header->container_size/header->num_channels;
-	printf("Number of bits per chunk: %d\n", read_size);
 
 	for(int i = 0; i < 100; i++) {
 //	for(int i = 0; i < chunks/4; i++) {	
@@ -120,12 +121,21 @@ static int get_leading_zeros(uint32_t val) {
 
 static uint8_t get_compressed_data(uint32_t val, int num_zeros)
 {
-	// Find position of relevant data
-	int data_position = 7 - num_zeros;
-	// Get relevant data
-	uint32_t masked_data = val & (0x0F << data_position);
-	// Shift data down to start and put into 8-bit int
-	uint8_t step_data = (uint8_t)(masked_data >> data_position);
+	uint32_t masked_data;
+	uint8_t step_data;
+	
+	if( num_zeros < 7 ){
+		// Find position of relevant data
+		int data_position = 7 - num_zeros;
+		// Get relevant data
+		masked_data = val & (0x0F << data_position);
+		// Shift data down to start and put into 8-bit int
+		step_data = (uint8_t)(masked_data >> data_position);
+	}else{
+		// Asymmetric case
+		masked_data = val & (0xf << 1 );
+		step_data = (uint8_t)(masked_data >> 1);
+	}
 
 	return step_data;
 }
