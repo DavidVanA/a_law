@@ -116,6 +116,10 @@ static int get_leading_zeros(uint32_t val) {
     		: [input] "r" (val)
   	);
 
+	if( num_zeros > 6 ){
+		num_zeros = 7;
+	}
+
 	return num_zeros;
 }
 
@@ -146,7 +150,7 @@ static uint8_t get_leading_zero_chord(int num_zeros) {
 }
 
 static uint8_t get_sign(uint32_t num) {
-	uint32_t mask = 0x800;
+	uint32_t mask = 0x1000;
 	uint32_t result;
 
 	asm ("ANDS %[result], %[num], %[mask]" 
