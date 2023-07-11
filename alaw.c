@@ -95,7 +95,7 @@ static uint8_t a_law_convert(uint32_t val) {
 	uint32_t val_signless = val & 0x7FF;
 	printf("Value without sign: %X\n", val_signless);
 	// Number of zeros is <leading zeros> - <space before data> - <space for sign>
-	int num_zeros = get_leading_zeros(val_signless) - 21;
+	int num_zeros = get_leading_zeros(val_signless) - 20;
 	printf("Number of zeros: %d\n", num_zeros);
 
 	// Get the converted value
@@ -116,8 +116,8 @@ static int get_leading_zeros(uint32_t val) {
     		: [input] "r" (val)
   	);
 
-	if( num_zeros > 6 ){
-		num_zeros = 7;
+	if( num_zeros > 26 ){
+		num_zeros = 27;
 	}
 
 	return num_zeros;
