@@ -53,8 +53,7 @@ int a_law(WAV_Header *header, FILE *input, FILE *output) {
 	// Unsure about this line
 	int read_size = header->container_size/header->num_channels;
 
-	for(int i = 0; i < 100; i++) {
-//	for(int i = 0; i < chunks/4; i++) {	
+	for(int i = 0; i < chunks/2; i++) {	
 		// Read in one sample
 		fread(&sample, read_size, 1, input);
 		// For every sample stored in this 32-bit int
@@ -74,11 +73,14 @@ int a_law(WAV_Header *header, FILE *input, FILE *output) {
 		0x0006,				// A-Law format
 		header->num_channels,		// Number of channels
 		header->sample_rate,		// Sample rate
-		header->sample_rate * header->num_channels * 8, // Byte rate
-		8 * header->num_channels,	// Container size
+		header->sample_rate * header->num_channels, // Byte rate
+		header->num_channels,		// Container size
 		8,				// Bits per sample
 		{ 'd', 'a', 't', 'a' },		// "data"
 	};
+
+	printf("\nOutput header:\n");
+	print_header(&output_header);
 
 	fseek(output, 0, SEEK_SET);
 	fwrite(&output_header, sizeof(WAV_Header), 1, output);
@@ -90,13 +92,13 @@ int a_law(WAV_Header *header, FILE *input, FILE *output) {
 }
 
 static uint8_t a_law_convert(uint32_t val) {
-	printf("\nValue: %X\n", val);
+//	printf("\nValue: %X\n", val);
 	// Get value without sign bit
 	uint32_t val_signless = val & 0x7FF;
-	printf("Value without sign: %X\n", val_signless);
+//	printf("Value without sign: %X\n", val_signless);
 	// Number of zeros is <leading zeros> - <space before data> - <space for sign>
 	int num_zeros = get_leading_zeros(val_signless) - 20;
-	printf("Number of zeros: %d\n", num_zeros);
+//	printf("Number of zeros: %d\n", num_zeros);
 
 	// Get the converted value
 	uint8_t converted = get_leading_zero_chord(num_zeros) | 
