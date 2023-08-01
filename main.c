@@ -1,4 +1,4 @@
-'/*
+/*
  * A-Law compression algorithm
  *
  * Written by: David Van Acken and Ryland Nezil
@@ -23,18 +23,18 @@ int main(int argc, char *argv[]) {
 	// Try to open the input file
 	FILE *input = fopen(argv[1], "rb");
 	FILE *output = fopen(argv[2], "wb");
+
 	// Check if the input was opened
 	if(input == NULL)
 	{
 		printf("Error: Could not open input file\n");
 		return 1;
 	}
-	printf("File opened: %s\n", argv[1]);
+
 	if(output == NULL) {
 		printf("Error: Could not open output file\n");
 		return 1;
 	}
-	printf("File opened: %s\n", argv[2]);
 
 	// Extract and print header from file
 	WAV_Header input_header;
