@@ -68,8 +68,8 @@ int a_law(WAV_Header *header, FILE *input, FILE *output) {
 		{ 'R', 'I', 'F', 'F' },		// "RIFF"
 		size,				// Number of chunks
 		{ 'W', 'A', 'V', 'E' },		// "WAVE"
-		{ 'f', 'm', 't', '\0' },	// "fmt "
-		8 * header->num_channels,	// Chunk size
+		{ 'f', 'm', 't', ' ' },	// "fmt "
+		0x00000010,			// # format bytes
 		0x0006,				// A-Law format
 		header->num_channels,		// Number of channels
 		header->sample_rate,		// Sample rate
