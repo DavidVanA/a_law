@@ -1,7 +1,7 @@
-/*
+'/*
  * A-Law compression algorithm
  *
- * Written by: David Van Acken
+ * Written by: David Van Acken and Ryland Nezil
  * On: June 11, 2023
  */
 
@@ -39,9 +39,7 @@ int main(int argc, char *argv[]) {
 	// Extract and print header from file
 	WAV_Header input_header;
 	get_wav_header(&input_header, input);
-	print_header(&input_header);
 
-	// TODO: If header looks good
 	// Compress and output
 	a_law(&input_header, input, output);
 
