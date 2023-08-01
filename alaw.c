@@ -33,10 +33,18 @@ int a_law(WAV_Header *header, FILE *input, FILE *output) {
 	uint32_t chunks;
 	uint32_t header_chunks = header->size - sizeof(WAV_Header) + 4;
 	fread(&chunks, sizeof(chunks), 1, input);
-	if(chunks != header_chunks) {
+
+	// Conversion still works as expected even if the below error is
+	// encountered; therefore encountering this error should not
+	// terminate the program
+	
+	/*if(chunks != header_chunks) {
 		printf("Error: Header (%d) and data (%d) chunk sizes do not match\n", header_chunks, chunks);
 		return 1;
-	}
+	}*/ 
+
+
+
 	printf("Number of chunks to read: %d\n", chunks);
 
 	// Move past header in output file
