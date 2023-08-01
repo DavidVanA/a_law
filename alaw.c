@@ -28,24 +28,10 @@ int a_law(WAV_Header *header, FILE *input, FILE *output) {
 		return 1;
 	}
 
-
 	// Read chunk size (should match header plus size of header and 'data')
 	uint32_t chunks;
 	uint32_t header_chunks = header->size - sizeof(WAV_Header) + 4;
 	fread(&chunks, sizeof(chunks), 1, input);
-
-	// Conversion still works as expected even if the below error is
-	// encountered; therefore encountering this error should not
-	// terminate the program
-	
-	/*if(chunks != header_chunks) {
-		printf("Error: Header (%d) and data (%d) chunk sizes do not match\n", header_chunks, chunks);
-		return 1;
-	}*/ 
-
-
-
-	printf("Number of chunks to read: %d\n", chunks);
 
 	// Move past header in output file
 	fseek(output, sizeof(WAV_Header), SEEK_SET);
@@ -54,20 +40,20 @@ int a_law(WAV_Header *header, FILE *input, FILE *output) {
 	uint32_t sample;
 	uint32_t size = 0;
 	uint8_t converted;
+	
 	// Want 12 bits per sample, so make data into that format
 	int shift_amount = header->bits_per_sample - 12;
-	printf("Reading data of size: %d\n", data_size);
 
 	// Unsure about this line
 	int read_size = header->container_size/header->num_channels;
 
-	for(int i = 0; i < chunks/2; i++) {	
+	for(int i = 0; i < chunks/2; i++) {
 		// Read in one sample
 		fread(&sample, read_size, 1, input);
+
 		// For every sample stored in this 32-bit int
 		// Shift over by number of bits needed to get next sample
 		converted = a_law_convert(sample >> shift_amount);
-//		printf("Converted value: %X\n", converted);
 		fwrite(&converted, 1, 1, output);
 		size++;
 	}
@@ -87,26 +73,18 @@ int a_law(WAV_Header *header, FILE *input, FILE *output) {
 		{ 'd', 'a', 't', 'a' },		// "data"
 	};
 
-	printf("\nOutput header:\n");
-	print_header(&output_header);
-
 	fseek(output, 0, SEEK_SET);
 	fwrite(&output_header, sizeof(WAV_Header), 1, output);
-
-//	printf("Number of leading zeros for 0x00000080: %d\n", get_leading_zeros(0x0080));
-//	printf("Is bit fifteen set? \nY: %X\nN: %X\n", get_sign(0x8000, 15), get_sign(0x0000, 0));
 
 	return 0;
 }
 
 static uint8_t a_law_convert(uint32_t val) {
-//	printf("\nValue: %X\n", val);
 	// Get value without sign bit
 	uint32_t val_signless = val & 0x7FF;
-//	printf("Value without sign: %X\n", val_signless);
+	
 	// Number of zeros is <leading zeros> - <space before data> - <space for sign>
 	int num_zeros = get_leading_zeros(val_signless) - 20;
-//	printf("Number of zeros: %d\n", num_zeros);
 
 	// Get the converted value
 	uint8_t converted = get_leading_zero_chord(num_zeros) | 
@@ -115,7 +93,6 @@ static uint8_t a_law_convert(uint32_t val) {
 
 	// Return the converted value
 	return converted;
-
 }
 
 static int get_leading_zeros(uint32_t val) {
@@ -126,6 +103,7 @@ static int get_leading_zeros(uint32_t val) {
     		: [input] "r" (val)
   	);
 
+	// Use predicate operation here
 	if( num_zeros > 26 ){
 		num_zeros = 27;
 	}
@@ -137,12 +115,15 @@ static uint8_t get_compressed_data(uint32_t val, int num_zeros)
 {
 	uint32_t masked_data;
 	uint8_t step_data;
-	
+
+	// Use predicate operations 	
 	if( num_zeros < 7 ){
 		// Find position of relevant data
 		int data_position = 7 - num_zeros;
+		
 		// Get relevant data
 		masked_data = val & (0x0F << data_position);
+		
 		// Shift data down to start and put into 8-bit int
 		step_data = (uint8_t)(masked_data >> data_position);
 	}else{

@@ -20,7 +20,6 @@ typedef struct WAV_Header
 	char data_label[4];
 } WAV_Header;
 
-bool print_header(WAV_Header *header);
 bool get_wav_header(WAV_Header *header, FILE *input);
 
 #endif
