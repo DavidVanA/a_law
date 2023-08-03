@@ -7,6 +7,7 @@
  */
 
 #include <stdio.h>
+#include <valgrind/callgrind.h>
 
 #include "alaw.h"
 
@@ -124,7 +125,6 @@ static int8_t a_law_convert(int16_t val) {
 	
 	// XOR converted value with 0x55 because PCM is weird
 	return converted ^ 0x55;
-
 }
 
 /*
@@ -144,13 +144,21 @@ static int get_leading_zeros(uint32_t val) {
 }
 */
 
-static int16_t get_magnitude(int16_t val) 
+static int16_t get_magnitude(register int16_t val) 
 {
-	if(val >= 0)
-		return val;
-	else
-		// Return positive value (+1 to avoid -MAX issues)
-		return -(val+1);	
+	register int16_t result;
+
+	__asm volatile (
+		"CMP 	%[val], 	#0 \n"
+		"MOVGE 	%[result], 	%[val] \n"
+		"MVNLT 	%[result], 	%[val] \n"
+		"ADDLT 	%[result], 	%[result], 	#1 \n"
+		: [result] "=r" (result)
+		: [val] "r" (val)
+		: "cc"
+	);
+
+	return result;
 }
 
 static uint8_t get_leading_zero_chord(int16_t val) {
@@ -158,16 +166,15 @@ static uint8_t get_leading_zero_chord(int16_t val) {
 	return log_table[(val >> 8) & 0x7F];
 }
 
-static uint8_t get_sign(int16_t num) {
-	uint32_t result;
+static uint8_t get_sign(register int16_t num) {
+	register uint32_t result;
 
-	asm ("ANDS %[result], %[num], %[sign_mask]" 
+	__asm volatile (
+		"ANDS %[result], %[num], %[sign_mask] \n" 
+	    	"MOVEQ %[result], #0x80 \n" 
 		: [result] "=r" (result) 
-		: [num] "r" (num), [sign_mask] "r" (sign_mask));
-
-	asm ("MOVEQ %[result], #0x80" 
-		: [result] "=r" (result) 
-		:
+		: [num] "r" (num), [sign_mask] "r" (sign_mask)
+		: "cc"
 	);
 
 	return result;
