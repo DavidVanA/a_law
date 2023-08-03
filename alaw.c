@@ -32,8 +32,9 @@ int a_law(WAV_Header *header, FILE *input, FILE *output) {
 	
 	// Read chunk size (should match header plus size of header and 'data')
 	uint32_t chunks;
-	uint32_t header_chunks = header->size - sizeof(WAV_Header) + 4;
 	fread(&chunks, sizeof(chunks), 1, input);
+#ifdef TESTING
+	uint32_t header_chunks = header->size - sizeof(WAV_Header) + 4;
 	if(chunks != header_chunks) {
 		printf("Error: Header (%d) and data (%d) chunk sizes do not match\n", header_chunks, chunks);
 		return 1;
@@ -45,6 +46,7 @@ int a_law(WAV_Header *header, FILE *input, FILE *output) {
 		printf("Error: Data size is not 16 bits");
 		return 1;
 	}
+#endif
 
 	// Move past header in output file
 	fseek(output, sizeof(WAV_Header) + sizeof(chunks), SEEK_SET);
@@ -81,9 +83,11 @@ int a_law(WAV_Header *header, FILE *input, FILE *output) {
 		{ 'd', 'a', 't', 'a' },		// "data"
 	};
 
+#ifdef TESTING
 	// Print out the new header
 	printf("\nOutput header:\n");
 	print_header(&output_header);
+#endif
 
 	// Move back to beginning of file
 	fseek(output, 0, SEEK_SET);

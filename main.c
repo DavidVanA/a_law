@@ -29,17 +29,21 @@ int main(int argc, char *argv[]) {
 		printf("Error: Could not open input file\n");
 		return 1;
 	}
-	printf("File opened: %s\n", argv[1]);
 	if(output == NULL) {
 		printf("Error: Could not open output file\n");
 		return 1;
 	}
+#ifdef TESTING
+	printf("File opened: %s\n", argv[1]);
 	printf("File opened: %s\n", argv[2]);
+#endif
 
 	// Extract and print header from file
 	WAV_Header input_header;
 	get_wav_header(&input_header, input);
+#ifdef TESTING
 	print_header(&input_header);
+#endif
 
 	// TODO: If header looks good
 	// Compress and output
