@@ -10,25 +10,26 @@
 
 #include "alaw.h"
 
-#define ALAW_A (87.6)
+static int8_t a_law_convert(int16_t val);
 
-static uint8_t a_law_convert(int val, int shift_amount);
-static uint8_t get_sign(uint32_t num);
-static int get_leading_zeros(uint32_t val);
-static uint8_t get_leading_zero_chord(int num_zeros);
-static uint8_t get_compressed_data(uint32_t val, int num_zeros);
+static uint8_t get_sign(int16_t num);
+//static int get_leading_zeros(uint32_t val);
+static int16_t get_magnitude(int16_t val);
+static uint8_t get_leading_zero_chord(int16_t val);
+
+// 8-bit log table for fast log base 2
+const static int8_t log_table[128] =
+{
+	1,1,2,2,3,3,3,3,4,4,4,4,4,4,4,4,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,
+     	6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,
+     	7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,
+     	7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7
+};
+
+static uint16_t sign_mask = 0x8000;
 
 int a_law(WAV_Header *header, FILE *input, FILE *output) {
-	// Get data container size
-	int data_size = header->container_size/header->num_channels;
 	
-	// Make sure that this data can be compressed
-	if(header->bits_per_sample < 12 || header->bits_per_sample > 32) {
-		printf("Error: Invalid number of bits per sample\n");
-		return 1;
-	}
-
-
 	// Read chunk size (should match header plus size of header and 'data')
 	uint32_t chunks;
 	uint32_t header_chunks = header->size - sizeof(WAV_Header) + 4;
@@ -38,35 +39,36 @@ int a_law(WAV_Header *header, FILE *input, FILE *output) {
 		return 1;
 	}
 	printf("Number of chunks to read: %d\n", chunks);
+	
+	// Size of data to be read
+	if(header->bits_per_sample != 16) {
+		printf("Error: Data size is not 16 bits");
+		return 1;
+	}
 
 	// Move past header in output file
 	fseek(output, sizeof(WAV_Header) + sizeof(chunks), SEEK_SET);
 
+	int16_t sample;		// Sample to be converted
+	uint32_t length = 0;	// Total length of data
+	uint8_t converted;	// Converted value to be written
+
 	// For every chunk
-	short sample;
-	uint32_t size = 0;
-	uint8_t converted;
-	// Want 12 bits per sample, so make data into that format
-	int shift_amount = header->bits_per_sample - 13;
-	printf("Reading data of size: %d\n", data_size);
-
-	// Unsure about this line
-	int read_size = header->container_size/header->num_channels;
-
 	for(int i = 0; i < chunks/2; i++) {	
 		// Read in one sample
-		sample = 0;
-		fread(&sample, read_size, 1, input);
-		// For every sample stored in this 32-bit int
+		fread(&sample, 2, 1, input);
 		// Shift over by number of bits needed to get next sample
-		converted = a_law_convert(sample, shift_amount);
+		converted = a_law_convert(sample);
+		// Write new data to output file
 		fwrite(&converted, 1, 1, output);
-		size++;
+		// Increment number of bytes written
+		length++;
 	}
 
+	// Create new header for A-Law data
 	WAV_Header output_header = {
 		{ 'R', 'I', 'F', 'F' },		// "RIFF"
-		size,				// Number of chunks
+		length,				// Number of chunks
 		{ 'W', 'A', 'V', 'E' },		// "WAVE"
 		{ 'f', 'm', 't', ' ' },	// "fmt "
 		0x00000010,			// # format bytes
@@ -79,56 +81,49 @@ int a_law(WAV_Header *header, FILE *input, FILE *output) {
 		{ 'd', 'a', 't', 'a' },		// "data"
 	};
 
+	// Print out the new header
 	printf("\nOutput header:\n");
 	print_header(&output_header);
 
+	// Move back to beginning of file
 	fseek(output, 0, SEEK_SET);
+	// Write the new header
 	fwrite(&output_header, sizeof(WAV_Header), 1, output);
-	fwrite(&size, sizeof(chunks), 1, output);
-
-//	printf("Number of leading zeros for 0x00000080: %d\n", get_leading_zeros(0x0080));
-//	printf("Is bit fifteen set? \nY: %X\nN: %X\n", get_sign(0x8000, 15), get_sign(0x0000, 0));
+	// Write the data length
+	fwrite(&length, sizeof(chunks), 1, output);
 
 	return 0;
 }
 
-static uint8_t a_law_convert(int val, int shift_amount) {
-	// Get 
-	uint8_t sign = 0x80;
-	uint32_t magnitude = val >> shift_amount;
+static int8_t a_law_convert(int16_t val) {
+	
+	int8_t converted, sign, chord, step;
 
-	if(val < 0) 
-	{
-		magnitude = -magnitude;
-		sign = 0;
+	// Get sign bit (in correct position)
+	sign = get_sign(val);
+	// Get magnitude of value
+	val = get_magnitude(val);
+
+	// If value will appear on log table (below 256 will always return 1 which should be 0)
+	if(val >= 256) {
+		// Get leading zero chord from value
+		chord = get_leading_zero_chord(val);
+		// Get step data from correct position, ignore other data (+3 because 16-bit)
+		step = (val >> (chord + 3) ) & 0x0F;
+		// Get the converted value
+		converted = sign | (chord <<  4) | step;
 	}
 
-	// Get value without sign bit
-	uint32_t mag_signless = magnitude & 0xFFF;
-	// Number of zeros is <leading zeros> - <space before data> - <space for sign>
-	int num_zeros = get_leading_zeros((val >> shift_amount) & 0xFFF) - 20;
-
-	uint8_t chord = get_leading_zero_chord(num_zeros);
-	if(val < 0)
-		chord = (~chord) & 0x70;
-	// Get the converted value
-	uint8_t converted = chord | 
-			    get_compressed_data(val, num_zeros) |
-			    sign;
-
-	// Return the converted value
+	// If value is less than 256, just take 4 lower bits of 13-bit number
+	else
+		converted = sign | (val >> 4);
 	
-	/*
-	printf("\nValue: %X\n", val);
-	printf("Magnitude: %X\n", mag_signless);
-	printf("Number of zeros: %d\n", num_zeros);
-	printf("Converted value: %X\n", converted);
-	*/
-	
+	// XOR converted value with 0x55 because PCM is weird
 	return converted ^ 0x55;
 
 }
 
+/*
 static int get_leading_zeros(uint32_t val) {
 	int num_zeros;
 
@@ -143,43 +138,28 @@ static int get_leading_zeros(uint32_t val) {
 
 	return num_zeros;
 }
+*/
 
-static uint8_t get_compressed_data(uint32_t val, int num_zeros)
+static int16_t get_magnitude(int16_t val) 
 {
-	uint32_t masked_data;
-	uint8_t step_data;
-	
-	if( num_zeros < 7 )
-	{
-		// Find position of relevant data
-		int data_position = 7 - num_zeros;
-		// Get relevant data
-		masked_data = val & (0x0F << data_position);
-		// Shift data down to start and put into 8-bit int
-		step_data = (uint8_t)(masked_data >> data_position);
-	}
+	if(val >= 0)
+		return val;
 	else
-	{
-		// Asymmetric case
-		masked_data = val & (0xf << 1 );
-		step_data = (uint8_t)(masked_data >> 1);
-	}
-
-	return step_data;
+		// Return positive value (+1 to avoid -MAX issues)
+		return -(val+1);	
 }
 
-static uint8_t get_leading_zero_chord(int num_zeros) {
-	// Chord is 0x70 for no leading zeros, 0 for max number
-	return (0x07 - num_zeros) << 4;
+static uint8_t get_leading_zero_chord(int16_t val) {
+	// Get chord according to upper bits
+	return log_table[(val >> 8) & 0x7F];
 }
 
-static uint8_t get_sign(uint32_t num) {
-	uint32_t mask = 0x1000;
+static uint8_t get_sign(int16_t num) {
 	uint32_t result;
 
-	asm ("ANDS %[result], %[num], %[mask]" 
+	asm ("ANDS %[result], %[num], %[sign_mask]" 
 		: [result] "=r" (result) 
-		: [num] "r" (num), [mask] "r" (mask));
+		: [num] "r" (num), [sign_mask] "r" (sign_mask));
 
 	asm ("MOVEQ %[result], #0x80" 
 		: [result] "=r" (result) 
