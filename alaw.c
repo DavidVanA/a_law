@@ -32,8 +32,9 @@ int a_law(WAV_Header *header, FILE *input, FILE *output) {
 	
 	// Read chunk size (should match header plus size of header and 'data')
 	uint32_t chunks;
-	uint32_t header_chunks = header->size - sizeof(WAV_Header) + 4;
 	fread(&chunks, sizeof(chunks), 1, input);
+#ifdef TESTING
+	uint32_t header_chunks = header->size - sizeof(WAV_Header) + 4;
 	if(chunks != header_chunks) {
 		printf("Error: Header (%d) and data (%d) chunk sizes do not match\n", header_chunks, chunks);
 		return 1;
@@ -45,6 +46,7 @@ int a_law(WAV_Header *header, FILE *input, FILE *output) {
 		printf("Error: Data size is not 16 bits");
 		return 1;
 	}
+#endif
 
 	// Move past header in output file
 	fseek(output, sizeof(WAV_Header) + sizeof(chunks), SEEK_SET);
@@ -81,9 +83,11 @@ int a_law(WAV_Header *header, FILE *input, FILE *output) {
 		{ 'd', 'a', 't', 'a' },		// "data"
 	};
 
+#ifdef TESTING
 	// Print out the new header
 	printf("\nOutput header:\n");
 	print_header(&output_header);
+#endif
 
 	// Move back to beginning of file
 	fseek(output, 0, SEEK_SET);
@@ -104,41 +108,17 @@ static int8_t a_law_convert(int16_t val) {
 	// Get magnitude of value
 	val = get_magnitude(val);
 
-	// If value will appear on log table (below 256 will always return 1 which should be 0)
-	if(val >= 256) {
-		// Get leading zero chord from value
-		chord = get_leading_zero_chord(val);
-		// Get step data from correct position, ignore other data (+3 because 16-bit)
-		step = (val >> (chord + 3) ) & 0x0F;
-		// Get the converted value
-		converted = sign | (chord <<  4) | step;
-	}
-
-	// If value is less than 256, just take 4 lower bits of 13-bit number
-	else
-		converted = sign | (val >> 4);
+	// Get leading zero chord from value
+	chord = get_leading_zero_chord(val);
+	// Get step data from correct position, ignore other data (+3 because 16-bit)
+	step = (val >> (chord + 3) ) & 0x0F;
+	// Get the converted value
+	converted = sign | (chord <<  4) | step;
 	
 	// XOR converted value with 0x55 because PCM is weird
 	return converted ^ 0x55;
 
 }
-
-/*
-static int get_leading_zeros(uint32_t val) {
-	int num_zeros;
-
-	__asm ("CLZ %[result], %[input]"
-    		: [result] "=r" (num_zeros)
-    		: [input] "r" (val)
-  	);
-
-	if( num_zeros > 26 ){
-		num_zeros = 27;
-	}
-
-	return num_zeros;
-}
-*/
 
 static int16_t get_magnitude(int16_t val) 
 {
@@ -151,20 +131,20 @@ static int16_t get_magnitude(int16_t val)
 
 static uint8_t get_leading_zero_chord(int16_t val) {
 	// Get chord according to upper bits
-	return log_table[(val >> 8) & 0x7F];
+	uint8_t chord = 7;
+	while( (!(val & 0x4000)) && chord != 0 )
+	{
+		val = val << 1;
+		chord --;
+	}
+
+	return chord;
 }
 
 static uint8_t get_sign(int16_t num) {
-	uint32_t result;
 
-	asm ("ANDS %[result], %[num], %[sign_mask]" 
-		: [result] "=r" (result) 
-		: [num] "r" (num), [sign_mask] "r" (sign_mask));
-
-	asm ("MOVEQ %[result], #0x80" 
-		: [result] "=r" (result) 
-		:
-	);
-
-	return result;
+	if(num < 0)
+		return 0x00;
+	else
+		return 0x80;
 }
