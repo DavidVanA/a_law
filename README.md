@@ -44,18 +44,21 @@ static int16_t get_magnitude(register int16_t val)
 ```
 
 ### Calculating chord
-The while loop used to find teh leading zeros chord has been replaced with a lookup table for log base 2:
+The chord is calculated using the CLZ instruction
 ``` C
-const static int8_t log_table[128] =
-{
-	1,1,2,2,3,3,3,3,4,4,4,4,4,4,4,4,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,
-     	6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,
-     	7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,
-     	7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7
-};
-```
-And the result is extracted from the log table by looking at the upper 7 bits of the value
-``` C
-chord = log_table[(val >> 8) & 0x7F];
+static int8_t get_leading_zeros(register uint32_t val) {
+	register uint32_t num_zeros = 0;
+
+	__asm volatile ( 
+		"CLZ 	%[result],	%[input] \n"
+	"	CMP 	%[result],	#24 \n"
+	"	MOVGT 	%[result],	#24 \n"
+    		: [result] "=r" (num_zeros)
+    		: [input] "r" (val)
+		: "cc"
+  	);
+
+	return 24 - num_zeros;
+}
 ```
 
