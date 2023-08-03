@@ -12,7 +12,7 @@
 
 #define ALAW_A (87.6)
 
-static uint8_t a_law_convert(uint32_t val);
+static uint8_t a_law_convert(int val, int shift_amount);
 static uint8_t get_sign(uint32_t num);
 static int get_leading_zeros(uint32_t val);
 static uint8_t get_leading_zero_chord(int num_zeros);
@@ -40,14 +40,14 @@ int a_law(WAV_Header *header, FILE *input, FILE *output) {
 	printf("Number of chunks to read: %d\n", chunks);
 
 	// Move past header in output file
-	fseek(output, sizeof(WAV_Header), SEEK_SET);
+	fseek(output, sizeof(WAV_Header) + sizeof(chunks), SEEK_SET);
 
 	// For every chunk
-	uint32_t sample;
+	short sample;
 	uint32_t size = 0;
 	uint8_t converted;
 	// Want 12 bits per sample, so make data into that format
-	int shift_amount = header->bits_per_sample - 12;
+	int shift_amount = header->bits_per_sample - 13;
 	printf("Reading data of size: %d\n", data_size);
 
 	// Unsure about this line
@@ -55,11 +55,11 @@ int a_law(WAV_Header *header, FILE *input, FILE *output) {
 
 	for(int i = 0; i < chunks/2; i++) {	
 		// Read in one sample
+		sample = 0;
 		fread(&sample, read_size, 1, input);
 		// For every sample stored in this 32-bit int
 		// Shift over by number of bits needed to get next sample
-		converted = a_law_convert(sample >> shift_amount);
-//		printf("Converted value: %X\n", converted);
+		converted = a_law_convert(sample, shift_amount);
 		fwrite(&converted, 1, 1, output);
 		size++;
 	}
@@ -68,8 +68,8 @@ int a_law(WAV_Header *header, FILE *input, FILE *output) {
 		{ 'R', 'I', 'F', 'F' },		// "RIFF"
 		size,				// Number of chunks
 		{ 'W', 'A', 'V', 'E' },		// "WAVE"
-		{ 'f', 'm', 't', '\0' },	// "fmt "
-		8 * header->num_channels,	// Chunk size
+		{ 'f', 'm', 't', ' ' },	// "fmt "
+		0x00000010,			// # format bytes
 		0x0006,				// A-Law format
 		header->num_channels,		// Number of channels
 		header->sample_rate,		// Sample rate
@@ -84,6 +84,7 @@ int a_law(WAV_Header *header, FILE *input, FILE *output) {
 
 	fseek(output, 0, SEEK_SET);
 	fwrite(&output_header, sizeof(WAV_Header), 1, output);
+	fwrite(&size, sizeof(chunks), 1, output);
 
 //	printf("Number of leading zeros for 0x00000080: %d\n", get_leading_zeros(0x0080));
 //	printf("Is bit fifteen set? \nY: %X\nN: %X\n", get_sign(0x8000, 15), get_sign(0x0000, 0));
@@ -91,22 +92,40 @@ int a_law(WAV_Header *header, FILE *input, FILE *output) {
 	return 0;
 }
 
-static uint8_t a_law_convert(uint32_t val) {
-//	printf("\nValue: %X\n", val);
-	// Get value without sign bit
-	uint32_t val_signless = val & 0x7FF;
-//	printf("Value without sign: %X\n", val_signless);
-	// Number of zeros is <leading zeros> - <space before data> - <space for sign>
-	int num_zeros = get_leading_zeros(val_signless) - 20;
-//	printf("Number of zeros: %d\n", num_zeros);
+static uint8_t a_law_convert(int val, int shift_amount) {
+	// Get 
+	uint8_t sign = 0x80;
+	uint32_t magnitude = val >> shift_amount;
 
+	if(val < 0) 
+	{
+		magnitude = -magnitude;
+		sign = 0;
+	}
+
+	// Get value without sign bit
+	uint32_t mag_signless = magnitude & 0xFFF;
+	// Number of zeros is <leading zeros> - <space before data> - <space for sign>
+	int num_zeros = get_leading_zeros((val >> shift_amount) & 0xFFF) - 20;
+
+	uint8_t chord = get_leading_zero_chord(num_zeros);
+	if(val < 0)
+		chord = (~chord) & 0x70;
 	// Get the converted value
-	uint8_t converted = get_leading_zero_chord(num_zeros) | 
-			    get_compressed_data(val_signless, num_zeros) |
-			    get_sign(val);
+	uint8_t converted = chord | 
+			    get_compressed_data(val, num_zeros) |
+			    sign;
 
 	// Return the converted value
-	return converted;
+	
+	/*
+	printf("\nValue: %X\n", val);
+	printf("Magnitude: %X\n", mag_signless);
+	printf("Number of zeros: %d\n", num_zeros);
+	printf("Converted value: %X\n", converted);
+	*/
+	
+	return converted ^ 0x55;
 
 }
 
@@ -130,14 +149,17 @@ static uint8_t get_compressed_data(uint32_t val, int num_zeros)
 	uint32_t masked_data;
 	uint8_t step_data;
 	
-	if( num_zeros < 7 ){
+	if( num_zeros < 7 )
+	{
 		// Find position of relevant data
 		int data_position = 7 - num_zeros;
 		// Get relevant data
 		masked_data = val & (0x0F << data_position);
 		// Shift data down to start and put into 8-bit int
 		step_data = (uint8_t)(masked_data >> data_position);
-	}else{
+	}
+	else
+	{
 		// Asymmetric case
 		masked_data = val & (0xf << 1 );
 		step_data = (uint8_t)(masked_data >> 1);
@@ -159,7 +181,7 @@ static uint8_t get_sign(uint32_t num) {
 		: [result] "=r" (result) 
 		: [num] "r" (num), [mask] "r" (mask));
 
-	asm ("MOVNE %[result], #0x80" 
+	asm ("MOVEQ %[result], #0x80" 
 		: [result] "=r" (result) 
 		:
 	);
