@@ -10,10 +10,7 @@
 
 #include "alaw.h"
 
-static int8_t a_law_convert(int16_t val);
-
 static uint8_t get_sign(int16_t num);
-//static int get_leading_zeros(uint32_t val);
 static int16_t get_magnitude(int16_t val);
 static uint8_t get_leading_zero_chord(int16_t val);
 
@@ -99,7 +96,7 @@ int a_law(WAV_Header *header, FILE *input, FILE *output) {
 	return 0;
 }
 
-static int8_t a_law_convert(int16_t val) {
+int8_t a_law_convert(int16_t val) {
 	
 	int8_t converted, sign, chord, step;
 
@@ -148,3 +145,4 @@ static uint8_t get_sign(int16_t num) {
 	else
 		return 0x80;
 }
+
