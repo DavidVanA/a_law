@@ -54,6 +54,7 @@ const static int8_t log_table[128] =
      	7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7
 };
 ```
+And the result is extracted from the log table by looking at the upper 7 bits of the value
 ``` C
 chord = log_table[(val >> 8) & 0x7F];
 ```
