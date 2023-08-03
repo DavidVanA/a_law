@@ -24,7 +24,7 @@ DBG_OBJECTS := $(addprefix $(BUILD_DIR)/$(DBG_DIR)/$(BIN_DIR)/, $(MAIN_SRC:$(SRC
 TEST_OBJECTS:= $(addprefix $(BUILD_DIR)/$(TEST_DIR)/$(BIN_DIR)/, $(TEST_SRC:$(SRC_DIR)/%.c=%.o))
 
 # Separate the debug CFLAGS for test and other sources
-CFLAGS_TEST := -c -I$(INC_DIR)
+CFLAGS_TEST := -c -g -I$(INC_DIR)
 CFLAGS_DBG  := -c -g -I$(INC_DIR)
 .PHONY: all debug test clean
 

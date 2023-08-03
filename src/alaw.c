@@ -13,7 +13,7 @@
 
 
 static inline uint8_t get_sign(int16_t num) __attribute__((always_inline));
-static inline int16_t get_magnitude(int16_t val) __attribute__((always_inline));
+static int16_t get_magnitude(int16_t val);
 
 static uint8_t get_leading_zero_chord(int16_t val);
 
@@ -56,20 +56,16 @@ int a_law(WAV_Header *header, FILE *input, FILE *output) {
 	uint8_t converted;	// Converted value to be written
 
 	// For every chunk
-//	for(int i = 0; i < chunks/2; i++) {	
+	for(int i = 0; i < chunks/2; i++) {	
 		// Read in one sample
 		fread(&sample, 2, 1, input);
 		// Shift over by number of bits needed to get next sample
-	CALLGRIND_START_INSTRUMENTATION;
-  	CALLGRIND_TOGGLE_COLLECT;
 		converted = a_law_convert(sample);
-  	CALLGRIND_TOGGLE_COLLECT;
-  	CALLGRIND_STOP_INSTRUMENTATION;
 		// Write new data to output file
 		fwrite(&converted, 1, 1, output);
 		// Increment number of bytes written
 		length++;
-//	}
+	}
 
 	// Create new header for A-Law data
 	WAV_Header output_header = {
@@ -152,7 +148,7 @@ static uint8_t get_leading_zero_chord(int16_t val) {
 	return log_table[(val >> 8) & 0x7F];
 }
 
-static inline int16_t get_magnitude(register int16_t val) 
+static int16_t get_magnitude(register int16_t val) 
 {
 	register int16_t result;
 
