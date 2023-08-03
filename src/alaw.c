@@ -15,8 +15,6 @@
 static inline uint8_t get_sign(int16_t num) __attribute__((always_inline));
 static int16_t get_magnitude(int16_t val);
 
-static uint8_t get_leading_zero_chord(int16_t val);
-
 // 8-bit log table for fast log base 2
 const static int8_t log_table[128] =
 {
@@ -111,7 +109,7 @@ int8_t a_law_convert(int16_t val) {
 	// If value will appear on log table (below 256 will always return 1 which should be 0)
 	if(val >= 256) {
 		// Get leading zero chord from value
-		chord = get_leading_zero_chord(val);
+		chord = log_table[(val >> 8) & 0x7F];
 		// Get step data from correct position, ignore other data (+3 because 16-bit)
 		step = (val >> (chord + 3) ) & 0x0F;
 		// Get the converted value
@@ -142,11 +140,6 @@ static int get_leading_zeros(uint32_t val) {
 	return num_zeros;
 }
 */
-
-static uint8_t get_leading_zero_chord(int16_t val) {
-	// Get chord according to upper bits
-	return log_table[(val >> 8) & 0x7F];
-}
 
 static int16_t get_magnitude(register int16_t val) 
 {
