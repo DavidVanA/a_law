@@ -12,7 +12,8 @@
 #include "alaw.h"
 
 
-static inline uint8_t get_sign(int16_t num) __attribute__((always_inline));
+static inline uint8_t get_sign(register int16_t num) __attribute__((always_inline));
+static int8_t get_leading_zeros(register uint32_t val);
 static int16_t get_magnitude(int16_t val);
 
 // 8-bit log table for fast log base 2
@@ -110,6 +111,7 @@ int8_t a_law_convert(int16_t val) {
 	if(val >= 256) {
 		// Get leading zero chord from value
 		chord = log_table[(val >> 8) & 0x7F];
+//		chord = get_leading_zeros(val);
 		// Get step data from correct position, ignore other data (+3 because 16-bit)
 		step = (val >> (chord + 3) ) & 0x0F;
 		// Get the converted value
@@ -124,22 +126,20 @@ int8_t a_law_convert(int16_t val) {
 	return converted ^ 0x55;
 }
 
-/*
-static int get_leading_zeros(uint32_t val) {
-	int num_zeros;
+static int8_t get_leading_zeros(register uint32_t val) {
+	register uint32_t num_zeros = 0;
 
-	__asm ("CLZ %[result], %[input]"
+	__asm volatile ( 
+		"CLZ 	%[result],	%[input] \n"
+	"	CMP 	%[result],	#24 \n"
+	"	MOVGT 	%[result],	#24 \n"
     		: [result] "=r" (num_zeros)
     		: [input] "r" (val)
+		: "cc"
   	);
 
-	if( num_zeros > 26 ){
-		num_zeros = 27;
-	}
-
-	return num_zeros;
+	return 24 - num_zeros;
 }
-*/
 
 static int16_t get_magnitude(register int16_t val) 
 {

@@ -6,7 +6,7 @@
 #include "alaw.h"
 
 #define TEST_LEN 4
-int16_t test_data [TEST_LEN] = { 0xFFED, 0x0003, 0x0CDE, 0xFF01 };
+int16_t test_data [TEST_LEN] = { 0x0713, 0x0203, 0x0CDE, 0x0179 };
 int main(void) 
 {
 	printf("Starting test\n");
@@ -24,7 +24,7 @@ int main(void)
 	printf("Test complete\n");
 	for(int i = 0; i < TEST_LEN; i++)
 	{
-		printf("Input [%d]: %X\n", i, test_data[i]);
-		printf("Test [%d]: %X\n", i, result[i]);
+		printf("Input 	[%d]: %X\n", i, test_data[i]);
+		printf("Result 	[%d]: %hhX\n", i, result[i]);
 	}
 }
