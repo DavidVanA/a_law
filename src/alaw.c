@@ -17,13 +17,6 @@ static int8_t get_leading_zeros(register uint32_t val);
 static int16_t get_magnitude(int16_t val);
 
 // 8-bit log table for fast log base 2
-const static int8_t log_table[128] =
-{
-	1,1,2,2,3,3,3,3,4,4,4,4,4,4,4,4,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,
-     	6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,
-     	7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,
-     	7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7
-};
 
 static uint16_t sign_mask = 0x8000;
 
@@ -106,22 +99,13 @@ int8_t a_law_convert(int16_t val) {
 	sign = get_sign(val);
 	// Get magnitude of value
 	val = get_magnitude(val);
+	// Get leading zero chord from value
+	chord = get_leading_zeros(val);
+	// Get step data from correct position, ignore other data (+3 because 16-bit)
+	step = (val >> (chord + 3) ) & 0x0F;
+	// Get the converted value
+	converted = sign | (chord <<  4) | step;
 
-	// If value will appear on log table (below 256 will always return 1 which should be 0)
-	if(val >= 256) {
-		// Get leading zero chord from value
-		chord = log_table[(val >> 8) & 0x7F];
-//		chord = get_leading_zeros(val);
-		// Get step data from correct position, ignore other data (+3 because 16-bit)
-		step = (val >> (chord + 3) ) & 0x0F;
-		// Get the converted value
-		converted = sign | (chord <<  4) | step;
-	}
-
-	// If value is less than 256, just take 4 lower bits of 13-bit number
-	else
-		converted = sign | (val >> 4);
-	
 	// XOR converted value with 0x55 because PCM is weird
 	return converted ^ 0x55;
 }
