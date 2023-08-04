@@ -49,16 +49,22 @@ int a_law(WAV_Header *header, FILE *input, FILE *output) {
 	// Move past header in output file
 	fseek(output, sizeof(WAV_Header) + sizeof(chunks), SEEK_SET);
 
-	int16_t sample;		// Sample to be converted
-	uint32_t length = 0;	// Total length of data
-	uint8_t converted;	// Converted value to be written
+	register int16_t sample;	// Sample to be converted
+	uint32_t length = 0;		// Total length of data
+	register uint8_t converted;	// Converted value to be written
 
 	// For every chunk
 	for(int i = 0; i < chunks/2; i++) {	
 		// Read in one sample
 		fread(&sample, 2, 1, input);
 		// Shift over by number of bits needed to get next sample
-		converted = a_law_convert(sample);
+
+		__asm volatile ( 
+			"ALAW %0, %1"
+	    		: "=r" (converted)
+    			: "r" (sample)
+  		);
+
 		// Write new data to output file
 		fwrite(&converted, 1, 1, output);
 		// Increment number of bytes written
