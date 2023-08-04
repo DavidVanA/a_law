@@ -8,21 +8,22 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include <string.h>
 
 #include "wav.h"
 #include "alaw.h"
 
 int main(int argc, char *argv[]) {
 	// Check argements
-	if(argc < 3) {
+	if(argc < 4) {
 		// Print error message
-		printf("Usage: alaw.x <input> <output>\n"); 
+		printf("Usage: alaw.x -<c/d> <input> <output>\n"); 
 		return 1;
 	}
 
 	// Try to open the input file
-	FILE *input = fopen(argv[1], "rb");
-	FILE *output = fopen(argv[2], "wb");
+	FILE *input = fopen(argv[2], "rb");
+	FILE *output = fopen(argv[3], "wb");
 	// Check if the input was opened
 	if(input == NULL)
 	{
@@ -47,7 +48,15 @@ int main(int argc, char *argv[]) {
 
 	// TODO: If header looks good
 	// Compress and output
-	a_law(&input_header, input, output);
+	if(0 == strcmp(argv[1], "-c"))
+	{
+		a_law(&input_header, input, output);
+	}
+
+	else if(0 == strcmp(argv[1], "-d"))
+	{
+		a_law_decomp(&input_header, input, output);
+	}
 
 	fclose(input);
 	fclose(output);

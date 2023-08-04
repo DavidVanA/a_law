@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdint.h>
+#include <string.h>
 
 #include <valgrind/callgrind.h>
 
@@ -7,9 +8,19 @@
 
 #define TEST_LEN 4
 int16_t test_data [TEST_LEN] = { 0x0713, 0x0203, 0x0CDE, 0x0179 };
-int main(void) 
+
+int main(int argc, char *argv[]) 
 {
 	printf("Starting test\n");
+
+	if(argc >= 1)
+	{
+		if(0 == strcmp(argv[1], "-c"))
+			printf("Compress");
+		else if(0 == strcmp(argv[1], "-d"))
+			printf("Decompress");
+	}
+
 	int8_t result[TEST_LEN];
 
 	CALLGRIND_START_INSTRUMENTATION;
