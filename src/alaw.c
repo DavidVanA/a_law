@@ -262,6 +262,7 @@ int16_t a_law_unconvert(uint8_t val)
 	// Result is step data shifted up plus trailing 1 b/c no zero on decomp
     	result = (step << 4) + 8;
 
+	// Shift by (chord - 1) if greater than 1
     	asm volatile (
         	"CMP     %0, #1      \n\t"  	// Compare chord with 1
         	"SUB     %0, %0, #1  \n\t"  	// Calculate (chord - 1)
