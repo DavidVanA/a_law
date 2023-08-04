@@ -12,7 +12,11 @@ int main(){
 	for( int i = 0; i < chunks/2; i++ ){
 		fread( &sample, 2, 1, sim_in );
 		
-		__asm__( "ALAW %0, %1" : "=r" (converted) : "r" (sample) );
+		__asm volatile( "ALAW %[converted],	%[sample]	\n"
+			: [converted] "=r" (converted)
+			: [sample] "r" (sample)
+			: "cc"
+		);
 
 		fwrite( &converted, 1, 1, sim_out ); 
 

@@ -36,7 +36,8 @@ main:
 	ldrsh	r3, [fp, #-26]
 	.syntax divided
 @ 15 "hardware_support.c" 1
-	ALAW r3, r3
+	ALAW r3,	r3	
+
 @ 0 "" 2
 	.arm
 	.syntax unified
