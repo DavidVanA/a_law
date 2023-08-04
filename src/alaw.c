@@ -107,38 +107,26 @@ int8_t a_law_convert(int16_t val) {
 	// Get magnitude of value
 	val = get_magnitude(val);
 
-	// If value will appear on log table (below 256 will always return 1 which should be 0)
-	if(val >= 256) {
-		// Get leading zero chord from value
-		chord = log_table[(val >> 8) & 0x7F];
-//		chord = get_leading_zeros(val);
-		// Get step data from correct position, ignore other data (+3 because 16-bit)
-		step = (val >> (chord + 3) ) & 0x0F;
-		// Get the converted value
-		converted = sign | (chord <<  4) | step;
-	}
+	// Get leading zero chord from value
+	chord = log_table[(val >> 8) & 0x7F];
+	// Get step data from correct position, ignore other data (+3 because 16-bit)
+	step = (val >> (chord + 3) ) & 0x0F;
 
-	// If value is less than 256, just take 4 lower bits of 13-bit number
-	else
-		converted = sign | (val >> 4);
+	// If the value is less than 256 clear the chord
+	register uint32_t chord_long = chord;
+	__asm volatile ( 
+		"CMP 	%[val],		#256 \n"
+	"	MOVLT 	%[chord],	#0 \n"
+    	: [chord] "=r" (chord_long)
+    	: [val] "r" (val)
+	: "cc"
+  	);
+	
+	// Get the converted value
+	converted = sign | (chord <<  4) | step;
 	
 	// XOR converted value with 0x55 because PCM is weird
 	return converted ^ 0x55;
-}
-
-static int8_t get_leading_zeros(register uint32_t val) {
-	register uint32_t num_zeros = 0;
-
-	__asm volatile ( 
-		"CLZ 	%[result],	%[input] \n"
-	"	CMP 	%[result],	#24 \n"
-	"	MOVGT 	%[result],	#24 \n"
-    		: [result] "=r" (num_zeros)
-    		: [input] "r" (val)
-		: "cc"
-  	);
-
-	return 24 - num_zeros;
 }
 
 static int16_t get_magnitude(register int16_t val) 
