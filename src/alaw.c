@@ -110,14 +110,15 @@ int8_t a_law_convert(int16_t val) {
 	return converted ^ 0x55;
 }
 
-static int8_t get_leading_zeros(register uint32_t val) {
-	register uint32_t num_zeros = 0;
+static int8_t get_leading_zeros(register uint32_t val) 
+{
+	register uint32_t num_zeros;
 
 	__asm volatile ( 
 		"CLZ 	%[result],	%[input] \n"
 	"	CMP 	%[result],	#24 \n"
-	"	MOVGT 	%[result],	#24 \n"
-    		: [result] "=r" (num_zeros)
+	"	MOVGT 	%[input],	#24 \n"
+		: [result] "=r" (num_zeros)
     		: [input] "r" (val)
 		: "cc"
   	);
